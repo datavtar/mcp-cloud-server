@@ -43,6 +43,21 @@ docker run -p 8080:8080 mcp-cloud-server
 
 ### Google Cloud Run Deployment
 
+Using the deploy script (recommended):
+
+```bash
+# Basic deployment
+python gcp_deploy.py --project-id <PROJECT_ID>
+
+# Custom region and service name
+python gcp_deploy.py -p <PROJECT_ID> -r europe-west1 -s weather-mcp
+
+# Redeploy without rebuilding
+python gcp_deploy.py -p <PROJECT_ID> --skip-build
+```
+
+Or manually with gcloud:
+
 ```bash
 # Build and push to Google Container Registry
 gcloud builds submit --tag gcr.io/<PROJECT_ID>/mcp-server
