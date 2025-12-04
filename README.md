@@ -139,29 +139,90 @@ Replace `<SERVICE_URL>` with your Cloud Run service URL (e.g., `mcp-server-xxxxx
 | `clothing_recommendation` | What to wear based on weather |
 | `outdoor_activity` | Is weather suitable for an activity? |
 
-## Usage with MCP Client
+## Client Integration
+
+### Claude Desktop App
+
+Add to your Claude Desktop config file:
+
+**macOS**: `~/Library/Application Support/Claude/claude_desktop_config.json`
+**Windows**: `%APPDATA%\Claude\claude_desktop_config.json`
+
+```json
+{
+  "mcpServers": {
+    "weather": {
+      "command": "npx",
+      "args": [
+        "-y",
+        "@modelcontextprotocol/server-sse-client",
+        "--url",
+        "https://<SERVICE_URL>/sse"
+      ]
+    }
+  }
+}
+```
+
+Replace `<SERVICE_URL>` with your Cloud Run service URL, then restart Claude Desktop.
+
+### Python SDK
+
+```bash
+pip install mcp
+```
 
 ```python
+import asyncio
 from mcp.client.sse import sse_client
 from mcp.client.session import ClientSession
 
-async with sse_client("http://localhost:8080/sse") as (read, write):
-    async with ClientSession(read, write) as session:
-        await session.initialize()
+SERVER_URL = "https://<SERVICE_URL>/sse"
 
-        # List tools
-        tools = await session.list_tools()
+async def main():
+    async with sse_client(SERVER_URL) as (read, write):
+        async with ClientSession(read, write) as session:
+            await session.initialize()
 
-        # Get global forecast (works anywhere)
-        result = await session.call_tool("get_global_forecast", {
-            "latitude": 48.8566,
-            "longitude": 2.3522
-        })
+            # List available tools
+            tools = await session.list_tools()
+            for tool in tools.tools:
+                print(f"- {tool.name}: {tool.description}")
 
-        # Geocode a location
-        coords = await session.call_tool("geocode_location", {
-            "query": "Eiffel Tower, Paris"
-        })
+            # Call a tool
+            result = await session.call_tool("get_global_forecast", {
+                "latitude": 28.6139,
+                "longitude": 77.2090
+            })
+            print(result.content[0].text)
+
+asyncio.run(main())
+```
+
+### TypeScript/Node.js SDK
+
+```bash
+npm install @modelcontextprotocol/sdk
+```
+
+```typescript
+import { Client } from "@modelcontextprotocol/sdk/client/index.js";
+import { SSEClientTransport } from "@modelcontextprotocol/sdk/client/sse.js";
+
+const client = new Client({ name: "weather-client", version: "1.0.0" });
+const transport = new SSEClientTransport(
+  new URL("https://<SERVICE_URL>/sse")
+);
+
+await client.connect(transport);
+
+// List tools
+const tools = await client.listTools();
+
+// Call a tool
+const result = await client.callTool("geocode_location", {
+  query: "Tokyo, Japan"
+});
 ```
 
 ## APIs Used
