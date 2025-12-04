@@ -8,8 +8,13 @@ WORKDIR /app
 COPY requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
 
-# Copy the server code
+# Copy all application code
+COPY config.py .
 COPY server.py .
+COPY utils/ ./utils/
+COPY tools/ ./tools/
+COPY resources/ ./resources/
+COPY prompts/ ./prompts/
 
 # Expose the port (Cloud Run sets this env var, but good practice to document)
 ENV PORT=8080
