@@ -10,6 +10,22 @@ class LLMProvider(ABC):
     (OpenAI, Gemini, etc.).
     """
 
+    @property
+    @abstractmethod
+    def model_name(self) -> str:
+        """Return the model name being used."""
+        pass
+
+    @property
+    @abstractmethod
+    def pricing(self) -> dict:
+        """Return pricing per million tokens.
+
+        Returns:
+            Dict with 'input' and 'output' keys containing USD cost per million tokens
+        """
+        pass
+
     @abstractmethod
     async def complete_with_tools(
         self,
@@ -42,11 +58,12 @@ class LLMProvider(ABC):
         pass
 
     @abstractmethod
-    def format_tool_result(self, tool_use_id: str, result: str) -> dict:
+    def format_tool_result(self, tool_use_id: str, tool_name: str, result: str) -> dict:
         """Format tool result for provider-specific message format.
 
         Args:
             tool_use_id: Unique identifier for the tool call
+            tool_name: Name of the tool that was called
             result: String result from tool execution
 
         Returns:

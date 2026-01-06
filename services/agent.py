@@ -6,7 +6,6 @@ from typing import Any
 
 from providers import get_provider
 from services.tool_registry import TOOLS, TOOL_FUNCTIONS
-from config import LLM_MODEL, LLM_PRICING
 
 # Configure logging
 logger = logging.getLogger(__name__)
@@ -135,7 +134,7 @@ class ServiceAgent:
                 result = await self._execute_tool(tool_call)
                 logger.info(f"TOOL RESULT: {result[:150]}..." if len(result) > 150 else f"TOOL RESULT: {result}")
                 tool_results.append(
-                    self.provider.format_tool_result(tool_call.id, result)
+                    self.provider.format_tool_result(tool_call.id, tool_call.name, result)
                 )
 
             # Add tool results to conversation
@@ -147,12 +146,13 @@ class ServiceAgent:
 
     def _log_cost(self, input_tokens: int, output_tokens: int) -> None:
         """Log token usage and estimated cost."""
-        pricing = LLM_PRICING.get(LLM_MODEL, {"input": 0, "output": 0})
+        pricing = self.provider.pricing
         input_cost = (input_tokens / 1_000_000) * pricing["input"]
         output_cost = (output_tokens / 1_000_000) * pricing["output"]
         total_cost = input_cost + output_cost
 
         logger.info(
+            f"MODEL: {self.provider.model_name} | "
             f"TOKENS: {input_tokens} in / {output_tokens} out | "
             f"COST: ${total_cost:.6f} (${input_cost:.6f} + ${output_cost:.6f})"
         )

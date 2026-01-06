@@ -11,6 +11,18 @@ class AnthropicProvider(LLMProvider):
 
     def __init__(self):
         self.client = anthropic.Anthropic()
+        self._model = LLM_MODEL
+
+    @property
+    def model_name(self) -> str:
+        """Return the model name being used."""
+        return self._model
+
+    @property
+    def pricing(self) -> dict:
+        """Return pricing per million tokens for the current model."""
+        # Pricing for claude-haiku-4-5
+        return {"input": 1.0, "output": 5.0}
 
     async def complete_with_tools(
         self,
@@ -31,7 +43,7 @@ class AnthropicProvider(LLMProvider):
         """Extract tool_use blocks from Claude's response."""
         return [block for block in response.content if block.type == "tool_use"]
 
-    def format_tool_result(self, tool_use_id: str, result: str) -> dict:
+    def format_tool_result(self, tool_use_id: str, tool_name: str, result: str) -> dict:
         """Format tool result for Claude's expected format."""
         return {
             "type": "tool_result",

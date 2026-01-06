@@ -1,6 +1,8 @@
 """Factory for creating LLM provider instances."""
 from .base import LLMProvider
 from .anthropic_provider import AnthropicProvider
+from .gemini_provider import GeminiProvider
+from .openai_provider import OpenAIProvider
 from config import LLM_PROVIDER
 
 
@@ -21,8 +23,8 @@ def get_provider(provider_name: str | None = None) -> LLMProvider:
 
     providers = {
         "anthropic": AnthropicProvider,
-        # "openai": OpenAIProvider,  # TODO: Implement when needed
-        # "gemini": GeminiProvider,  # TODO: Implement when needed
+        "gemini": GeminiProvider,
+        "openai": OpenAIProvider,
     }
 
     if name not in providers:
