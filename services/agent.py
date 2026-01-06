@@ -6,6 +6,7 @@ from typing import Any
 
 from providers import get_provider
 from services.tool_registry import TOOLS, TOOL_FUNCTIONS
+from config import LLM_MODEL, LLM_PRICING
 
 # Configure logging
 logger = logging.getLogger(__name__)
@@ -82,6 +83,10 @@ class ServiceAgent:
         if request.get('context'):
             logger.info(f"CONTEXT: {request.get('context')}")
 
+        # Token tracking
+        total_input_tokens = 0
+        total_output_tokens = 0
+
         # Agentic loop - keep calling LLM until it's done
         max_iterations = 10  # Safety limit
         iteration = 0
@@ -96,12 +101,18 @@ class ServiceAgent:
                 system_prompt=SYSTEM_PROMPT
             )
 
+            # Track tokens
+            usage = self.provider.get_usage(response)
+            total_input_tokens += usage["input_tokens"]
+            total_output_tokens += usage["output_tokens"]
+
             # Check if LLM is done (no more tool calls)
             if self.provider.is_complete(response):
                 final_text = self.provider.extract_final_response(response)
                 logger.info(f"MODEL COMPLETE - generating response")
                 result = self._parse_json_response(final_text)
                 logger.info(f"RESPONSE: {json.dumps(result)[:200]}...")
+                self._log_cost(total_input_tokens, total_output_tokens)
                 logger.info(f"{'='*60}")
                 return result
 
@@ -133,6 +144,18 @@ class ServiceAgent:
         # If we hit max iterations, return error
         logger.error("MAX ITERATIONS REACHED")
         return {"error": "Max iterations reached", "partial_data": None}
+
+    def _log_cost(self, input_tokens: int, output_tokens: int) -> None:
+        """Log token usage and estimated cost."""
+        pricing = LLM_PRICING.get(LLM_MODEL, {"input": 0, "output": 0})
+        input_cost = (input_tokens / 1_000_000) * pricing["input"]
+        output_cost = (output_tokens / 1_000_000) * pricing["output"]
+        total_cost = input_cost + output_cost
+
+        logger.info(
+            f"TOKENS: {input_tokens} in / {output_tokens} out | "
+            f"COST: ${total_cost:.6f} (${input_cost:.6f} + ${output_cost:.6f})"
+        )
 
     def _build_user_message(self, request: dict) -> str:
         """Build the user message from request parameters."""

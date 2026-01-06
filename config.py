@@ -18,3 +18,10 @@ LLM_PROVIDER = "anthropic"
 # Anthropic settings
 LLM_MODEL = "claude-haiku-4-5"
 LLM_MAX_TOKENS = 4096
+
+# Pricing per million tokens (USD)
+LLM_PRICING = {
+    "claude-haiku-4-5": {"input": 1.0, "output": 5.0},
+    "claude-sonnet-4-5-20250514": {"input": 6.0, "output": 22.5},
+    "claude-opus-4-5-20250514": {"input": 15.0, "output": 75.0},
+}

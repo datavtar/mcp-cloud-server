@@ -89,3 +89,15 @@ class LLMProvider(ABC):
             Message dict suitable for appending to messages list
         """
         pass
+
+    @abstractmethod
+    def get_usage(self, response: Any) -> dict:
+        """Extract token usage from response.
+
+        Args:
+            response: Provider-specific response object
+
+        Returns:
+            Dict with 'input_tokens' and 'output_tokens'
+        """
+        pass

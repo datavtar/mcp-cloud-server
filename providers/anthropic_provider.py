@@ -53,3 +53,10 @@ class AnthropicProvider(LLMProvider):
     def format_assistant_message(self, response: Any) -> dict:
         """Format Claude's response as an assistant message."""
         return {"role": "assistant", "content": response.content}
+
+    def get_usage(self, response: Any) -> dict:
+        """Extract token usage from Claude's response."""
+        return {
+            "input_tokens": response.usage.input_tokens,
+            "output_tokens": response.usage.output_tokens
+        }
