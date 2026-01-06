@@ -15,6 +15,8 @@ COPY utils/ ./utils/
 COPY tools/ ./tools/
 COPY resources/ ./resources/
 COPY prompts/ ./prompts/
+COPY providers/ ./providers/
+COPY services/ ./services/
 
 # Expose the port (Cloud Run sets this env var, but good practice to document)
 ENV PORT=8080

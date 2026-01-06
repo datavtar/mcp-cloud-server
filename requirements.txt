@@ -2,3 +2,5 @@ fastmcp
 uvicorn[standard]
 starlette
 httpx
+anthropic
+python-dotenv
