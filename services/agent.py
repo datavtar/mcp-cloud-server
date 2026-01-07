@@ -53,14 +53,16 @@ Do not wrap the JSON in markdown code blocks or add any text before/after it."""
 class ServiceAgent:
     """LLM-powered agent that interprets requests and uses tools."""
 
-    def __init__(self, provider_name: str | None = None):
+    def __init__(self, provider_name: str | None = None, model_type: str | None = None):
         """Initialize the agent with a specific LLM provider.
 
         Args:
-            provider_name: Name of LLM provider ('anthropic', 'openai', etc.)
+            provider_name: Name of LLM provider ('anthropic', 'openai', 'gemini', 'vertex')
                           If None, uses default from config
+            model_type: Optional model type for providers that support multiple
+                       model families (e.g., 'gemini' for Vertex AI)
         """
-        self.provider = get_provider(provider_name)
+        self.provider = get_provider(provider_name, model_type)
 
     async def process_request(self, request: dict) -> dict:
         """Process a request and return structured JSON response.

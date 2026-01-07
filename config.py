@@ -12,7 +12,7 @@ DEFAULT_TIMEOUT = 30.0
 
 # LLM Provider Settings
 # Default provider for the intelligent service
-# Options: "anthropic", "openai", "gemini"
+# Options: "anthropic", "openai", "gemini", "vertex"
 LLM_PROVIDER = "anthropic"
 
 # Anthropic settings (default)

@@ -9,7 +9,8 @@ from config import LLM_MODEL, LLM_MAX_TOKENS
 class AnthropicProvider(LLMProvider):
     """LLM provider for Anthropic Claude models."""
 
-    def __init__(self):
+    def __init__(self, model_type: str | None = None):
+        super().__init__(model_type)
         self.client = anthropic.Anthropic()
         self._model = LLM_MODEL
 

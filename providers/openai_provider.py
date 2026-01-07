@@ -23,7 +23,8 @@ class ToolCall:
 class OpenAIProvider(LLMProvider):
     """LLM provider for OpenAI models."""
 
-    def __init__(self):
+    def __init__(self, model_type: str | None = None):
+        super().__init__(model_type)
         self.client = OpenAI()
         self._model = OPENAI_MODEL
 

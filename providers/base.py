@@ -10,6 +10,15 @@ class LLMProvider(ABC):
     (OpenAI, Gemini, etc.).
     """
 
+    def __init__(self, model_type: str | None = None):
+        """Initialize provider with optional model type.
+
+        Args:
+            model_type: Optional model type/family (e.g., 'gemini', 'palm').
+                       Used by providers that support multiple model families.
+        """
+        self._model_type = model_type
+
     @property
     @abstractmethod
     def model_name(self) -> str:

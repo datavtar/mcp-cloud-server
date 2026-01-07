@@ -1,4 +1,4 @@
-"""Google Gemini LLM provider implementation."""
+"""Google Vertex AI LLM provider implementation."""
 import os
 from google import genai
 from google.genai import types
@@ -8,30 +8,45 @@ from dataclasses import dataclass
 from .base import LLMProvider
 
 
-# Default model configuration
-GEMINI_MODEL = "gemini-3-flash-preview"
-GEMINI_MAX_TOKENS = 8192
+# Model type to model name mapping
+MODEL_MAP = {
+    "gemini": "gemini-3-flash-preview",
+    # Future model types can be added here
+    # "palm": "palm-2-...",
+}
+
+# Default configuration
+VERTEX_MAX_TOKENS = 8192
+DEFAULT_MODEL_TYPE = "gemini"
 
 
 @dataclass
 class ToolCall:
-    """Represents a tool call from Gemini."""
+    """Represents a tool call from Vertex AI."""
     id: str
     name: str
     input: dict
 
 
-class GeminiProvider(LLMProvider):
-    """LLM provider for Google Gemini Developer API."""
+class VertexProvider(LLMProvider):
+    """LLM provider for Google Vertex AI platform."""
 
     def __init__(self, model_type: str | None = None):
         super().__init__(model_type)
-        api_key = os.environ.get("GOOGLE_API_KEY")
+        api_key = os.environ.get("GOOGLE_CLOUD_API_KEY")
         if not api_key:
-            raise ValueError("GOOGLE_API_KEY environment variable is required for Gemini provider")
+            raise ValueError("GOOGLE_CLOUD_API_KEY environment variable is required for Vertex provider")
 
-        self.client = genai.Client(api_key=api_key)
-        self._model = GEMINI_MODEL
+        self.client = genai.Client(api_key=api_key, vertexai=True)
+
+        # Resolve model type to actual model name
+        effective_type = model_type or DEFAULT_MODEL_TYPE
+        if effective_type not in MODEL_MAP:
+            available = list(MODEL_MAP.keys())
+            raise ValueError(f"Unknown model type: {effective_type}. Available: {available}")
+
+        self._model = MODEL_MAP[effective_type]
+        self._effective_type = effective_type
 
     @property
     def model_name(self) -> str:
@@ -41,14 +56,16 @@ class GeminiProvider(LLMProvider):
     @property
     def pricing(self) -> dict:
         """Return pricing per million tokens for the current model."""
-        # Pricing for gemini-3-flash-preview
+        # Pricing varies by model type
+        if self._effective_type == "gemini":
+            return {"input": 0.50, "output": 3.00}
+        # Default pricing
         return {"input": 0.50, "output": 3.00}
 
     def _convert_tools(self, tools: list[dict]) -> list[types.Tool]:
-        """Convert Anthropic-format tools to Gemini format."""
+        """Convert Anthropic-format tools to Vertex AI format."""
         function_declarations = []
         for tool in tools:
-            # Convert input_schema to parameters (Gemini format)
             declaration = {
                 "name": tool["name"],
                 "description": tool["description"],
@@ -64,19 +81,17 @@ class GeminiProvider(LLMProvider):
         tools: list[dict],
         system_prompt: str
     ) -> Any:
-        """Send messages to Gemini with tool definitions."""
-        # Build contents from messages
+        """Send messages to Vertex AI with tool definitions."""
         contents = self._build_contents(messages)
 
-        # Build configuration dict style (matching agentic-context-lake pattern)
-        gemini_tools = self._convert_tools(tools) if tools else None
+        vertex_tools = self._convert_tools(tools) if tools else None
 
         config_dict = {
             "temperature": 0.7,
         }
 
-        if gemini_tools:
-            config_dict["tools"] = gemini_tools
+        if vertex_tools:
+            config_dict["tools"] = vertex_tools
             config_dict["tool_config"] = types.ToolConfig(
                 function_calling_config=types.FunctionCallingConfig(mode="auto")
             )
@@ -84,7 +99,6 @@ class GeminiProvider(LLMProvider):
         config = types.GenerateContentConfig(**config_dict)
         config.system_instruction = system_prompt
 
-        # Make the API call
         response = self.client.models.generate_content(
             model=self._model,
             contents=contents,
@@ -94,20 +108,18 @@ class GeminiProvider(LLMProvider):
         return response
 
     def _build_contents(self, messages: list[dict]) -> list[types.Content]:
-        """Build Gemini content list from messages."""
+        """Build Vertex AI content list from messages."""
         contents = []
 
         for msg in messages:
             role = msg.get("role", "user")
             content = msg.get("content")
 
-            # Map roles to Gemini format
             if role == "assistant":
                 role = "model"
             elif role == "system":
-                continue  # System handled via config.system_instruction
+                continue
 
-            # Handle different content types
             if isinstance(content, str):
                 contents.append(
                     types.Content(
@@ -116,7 +128,6 @@ class GeminiProvider(LLMProvider):
                     )
                 )
             elif isinstance(content, list):
-                # Handle tool results from previous iterations
                 parts = []
                 for item in content:
                     if isinstance(item, dict) and item.get("type") == "tool_result":
@@ -132,7 +143,7 @@ class GeminiProvider(LLMProvider):
         return contents
 
     def parse_tool_calls(self, response: Any) -> list[ToolCall]:
-        """Extract function calls from Gemini's response."""
+        """Extract function calls from Vertex AI's response."""
         tool_calls = []
 
         if not response.candidates:
@@ -146,7 +157,7 @@ class GeminiProvider(LLMProvider):
             if hasattr(part, "function_call") and part.function_call:
                 fc = part.function_call
                 tool_calls.append(ToolCall(
-                    id=f"gemini_tool_{i}",
+                    id=f"vertex_tool_{i}",
                     name=fc.name,
                     input=dict(fc.args) if fc.args else {}
                 ))
@@ -154,7 +165,7 @@ class GeminiProvider(LLMProvider):
         return tool_calls
 
     def format_tool_result(self, tool_use_id: str, tool_name: str, result: str) -> dict:
-        """Format tool result for Gemini's expected format."""
+        """Format tool result for Vertex AI's expected format."""
         return {
             "type": "tool_result",
             "tool_use_id": tool_use_id,
@@ -163,13 +174,12 @@ class GeminiProvider(LLMProvider):
         }
 
     def is_complete(self, response: Any) -> bool:
-        """Check if Gemini is done (no more tool calls needed)."""
+        """Check if Vertex AI is done (no more tool calls needed)."""
         if not response.candidates:
             return True
 
         candidate = response.candidates[0]
 
-        # Check if there are no function calls
         if not candidate.content or not candidate.content.parts:
             return True
 
@@ -178,11 +188,10 @@ class GeminiProvider(LLMProvider):
             if hasattr(part, "function_call") and part.function_call:
                 return False
 
-        # No function calls - we're done
         return True
 
     def extract_final_response(self, response: Any) -> str:
-        """Extract text content from Gemini's response."""
+        """Extract text content from Vertex AI's response."""
         if not response.candidates:
             return ""
 
@@ -198,13 +207,12 @@ class GeminiProvider(LLMProvider):
         return "".join(text_parts)
 
     def format_assistant_message(self, response: Any) -> dict:
-        """Format Gemini's response as an assistant message."""
+        """Format Vertex AI's response as an assistant message."""
         if not response.candidates:
             return {"role": "model", "content": ""}
 
         candidate = response.candidates[0]
 
-        # For Gemini, we need to preserve the content structure for tool call loops
         parts = []
         if candidate.content and candidate.content.parts:
             for part in candidate.content.parts:
@@ -221,7 +229,7 @@ class GeminiProvider(LLMProvider):
         return {"role": "model", "content": parts if parts else ""}
 
     def get_usage(self, response: Any) -> dict:
-        """Extract token usage from Gemini's response."""
+        """Extract token usage from Vertex AI's response."""
         if hasattr(response, 'usage_metadata') and response.usage_metadata:
             return {
                 "input_tokens": getattr(response.usage_metadata, 'prompt_token_count', 0) or 0,

@@ -35,7 +35,8 @@ async def services_api(request):
         "request": "Weather in Amsterdam for next 3 days",  # Required
         "context": "Planning a trip",                        # Optional
         "output_format": {"keys": ["temp"], "units": "F"},   # Optional
-        "provider": "anthropic"                              # Optional
+        "provider": "anthropic",                             # Optional (anthropic, openai, gemini, vertex)
+        "type": "gemini"                                     # Optional (model type for vertex provider)
     }
     """
     try:
@@ -55,15 +56,16 @@ async def services_api(request):
     # Import here to avoid circular imports
     from services.agent import ServiceAgent
 
-    # Extract provider if specified, otherwise use default
+    # Extract provider and type if specified, otherwise use defaults
     provider = body.pop("provider", None)
+    model_type = body.pop("type", None)
 
     try:
-        agent = ServiceAgent(provider_name=provider)
+        agent = ServiceAgent(provider_name=provider, model_type=model_type)
         result = await agent.process_request(body)
         return JSONResponse(result)
     except ValueError as e:
-        # Invalid provider name
+        # Invalid provider name or model type
         return JSONResponse({"error": str(e)}, status_code=400)
     except Exception as e:
         return JSONResponse(

@@ -2,16 +2,19 @@
 from .base import LLMProvider
 from .anthropic_provider import AnthropicProvider
 from .gemini_provider import GeminiProvider
+from .vertex_provider import VertexProvider
 from .openai_provider import OpenAIProvider
 from config import LLM_PROVIDER
 
 
-def get_provider(provider_name: str | None = None) -> LLMProvider:
+def get_provider(provider_name: str | None = None, model_type: str | None = None) -> LLMProvider:
     """Factory to get LLM provider instance.
 
     Args:
         provider_name: Name of the provider to use. If None, uses default
                       from config.LLM_PROVIDER
+        model_type: Optional model type for providers that support multiple
+                   model families (e.g., 'gemini' for Vertex AI)
 
     Returns:
         LLMProvider instance
@@ -23,7 +26,8 @@ def get_provider(provider_name: str | None = None) -> LLMProvider:
 
     providers = {
         "anthropic": AnthropicProvider,
-        "gemini": GeminiProvider,
+        "gemini": GeminiProvider,      # Gemini Developer API
+        "vertex": VertexProvider,      # Vertex AI platform
         "openai": OpenAIProvider,
     }
 
@@ -31,4 +35,4 @@ def get_provider(provider_name: str | None = None) -> LLMProvider:
         available = list(providers.keys())
         raise ValueError(f"Unknown provider: {name}. Available: {available}")
 
-    return providers[name]()
+    return providers[name](model_type=model_type)
