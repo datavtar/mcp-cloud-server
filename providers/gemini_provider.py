@@ -9,8 +9,8 @@ from .base import LLMProvider
 
 
 # Default model configuration
-GEMINI_MODEL = "gemini-3-flash-preview"
 GEMINI_MAX_TOKENS = 8192
+DEFAULT_GEMINI_MODEL = "gemini-3-flash-preview"
 
 
 @dataclass
@@ -24,14 +24,14 @@ class ToolCall:
 class GeminiProvider(LLMProvider):
     """LLM provider for Google Gemini Developer API."""
 
-    def __init__(self, model_type: str | None = None):
-        super().__init__(model_type)
+    def __init__(self, model_type: str | None = None, model: str | None = None):
+        super().__init__(model_type, model)
         api_key = os.environ.get("GOOGLE_API_KEY")
         if not api_key:
             raise ValueError("GOOGLE_API_KEY environment variable is required for Gemini provider")
 
         self.client = genai.Client(api_key=api_key)
-        self._model = GEMINI_MODEL
+        self._model = model or os.environ.get("GEMINI_MODEL", DEFAULT_GEMINI_MODEL)
 
     @property
     def model_name(self) -> str:

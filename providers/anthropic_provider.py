@@ -1,18 +1,23 @@
 """Anthropic Claude LLM provider implementation."""
+import os
 import anthropic
 from typing import Any
 
 from .base import LLMProvider
-from config import LLM_MODEL, LLM_MAX_TOKENS
+
+
+# Default configuration
+ANTHROPIC_MAX_TOKENS = 4096
+DEFAULT_ANTHROPIC_MODEL = "claude-haiku-4-5"
 
 
 class AnthropicProvider(LLMProvider):
     """LLM provider for Anthropic Claude models."""
 
-    def __init__(self, model_type: str | None = None):
-        super().__init__(model_type)
+    def __init__(self, model_type: str | None = None, model: str | None = None):
+        super().__init__(model_type, model)
         self.client = anthropic.Anthropic()
-        self._model = LLM_MODEL
+        self._model = model or os.environ.get("ANTHROPIC_MODEL", DEFAULT_ANTHROPIC_MODEL)
 
     @property
     def model_name(self) -> str:
@@ -33,8 +38,8 @@ class AnthropicProvider(LLMProvider):
     ) -> Any:
         """Send messages to Claude with tool definitions."""
         return self.client.messages.create(
-            model=LLM_MODEL,
-            max_tokens=LLM_MAX_TOKENS,
+            model=self._model,
+            max_tokens=ANTHROPIC_MAX_TOKENS,
             system=system_prompt,
             tools=tools,
             messages=messages

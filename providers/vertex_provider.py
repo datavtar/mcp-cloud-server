@@ -18,6 +18,7 @@ MODEL_MAP = {
 # Default configuration
 VERTEX_MAX_TOKENS = 8192
 DEFAULT_MODEL_TYPE = "gemini"
+DEFAULT_VERTEX_MODEL = "gemini-3-flash-preview"
 
 
 @dataclass
@@ -31,22 +32,26 @@ class ToolCall:
 class VertexProvider(LLMProvider):
     """LLM provider for Google Vertex AI platform."""
 
-    def __init__(self, model_type: str | None = None):
-        super().__init__(model_type)
+    def __init__(self, model_type: str | None = None, model: str | None = None):
+        super().__init__(model_type, model)
         api_key = os.environ.get("GOOGLE_CLOUD_API_KEY")
         if not api_key:
             raise ValueError("GOOGLE_CLOUD_API_KEY environment variable is required for Vertex provider")
 
         self.client = genai.Client(api_key=api_key, vertexai=True)
 
-        # Resolve model type to actual model name
-        effective_type = model_type or DEFAULT_MODEL_TYPE
-        if effective_type not in MODEL_MAP:
-            available = list(MODEL_MAP.keys())
-            raise ValueError(f"Unknown model type: {effective_type}. Available: {available}")
-
-        self._model = MODEL_MAP[effective_type]
-        self._effective_type = effective_type
+        # Model override takes precedence
+        if model:
+            self._model = model
+            self._effective_type = model_type or DEFAULT_MODEL_TYPE
+        else:
+            # Use MODEL_MAP based on model_type, or env default
+            effective_type = model_type or DEFAULT_MODEL_TYPE
+            if effective_type not in MODEL_MAP:
+                available = list(MODEL_MAP.keys())
+                raise ValueError(f"Unknown model type: {effective_type}. Available: {available}")
+            self._model = os.environ.get("VERTEX_MODEL", MODEL_MAP[effective_type])
+            self._effective_type = effective_type
 
     @property
     def model_name(self) -> str:

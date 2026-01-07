@@ -36,7 +36,8 @@ async def services_api(request):
         "context": "Planning a trip",                        # Optional
         "output_format": {"keys": ["temp"], "units": "F"},   # Optional
         "provider": "anthropic",                             # Optional (anthropic, openai, gemini, vertex)
-        "type": "gemini"                                     # Optional (model type for vertex provider)
+        "type": "gemini",                                    # Optional (model type for vertex provider)
+        "model": "gpt-5-nano"                                # Optional (override default model)
     }
     """
     try:
@@ -56,16 +57,17 @@ async def services_api(request):
     # Import here to avoid circular imports
     from services.agent import ServiceAgent
 
-    # Extract provider and type if specified, otherwise use defaults
+    # Extract provider, type, and model if specified, otherwise use defaults
     provider = body.pop("provider", None)
     model_type = body.pop("type", None)
+    model = body.pop("model", None)
 
     try:
-        agent = ServiceAgent(provider_name=provider, model_type=model_type)
+        agent = ServiceAgent(provider_name=provider, model_type=model_type, model=model)
         result = await agent.process_request(body)
         return JSONResponse(result)
     except ValueError as e:
-        # Invalid provider name or model type
+        # Invalid provider name, model type, or model
         return JSONResponse({"error": str(e)}, status_code=400)
     except Exception as e:
         return JSONResponse(

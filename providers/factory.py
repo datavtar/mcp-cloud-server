@@ -7,7 +7,7 @@ from .openai_provider import OpenAIProvider
 from config import LLM_PROVIDER
 
 
-def get_provider(provider_name: str | None = None, model_type: str | None = None) -> LLMProvider:
+def get_provider(provider_name: str | None = None, model_type: str | None = None, model: str | None = None) -> LLMProvider:
     """Factory to get LLM provider instance.
 
     Args:
@@ -15,6 +15,8 @@ def get_provider(provider_name: str | None = None, model_type: str | None = None
                       from config.LLM_PROVIDER
         model_type: Optional model type for providers that support multiple
                    model families (e.g., 'gemini' for Vertex AI)
+        model: Optional model name override. If provided, uses this model
+              instead of the default from environment.
 
     Returns:
         LLMProvider instance
@@ -35,4 +37,4 @@ def get_provider(provider_name: str | None = None, model_type: str | None = None
         available = list(providers.keys())
         raise ValueError(f"Unknown provider: {name}. Available: {available}")
 
-    return providers[name](model_type=model_type)
+    return providers[name](model_type=model_type, model=model)

@@ -15,9 +15,5 @@ DEFAULT_TIMEOUT = 30.0
 # Options: "anthropic", "openai", "gemini", "vertex"
 LLM_PROVIDER = "anthropic"
 
-# Anthropic settings (default)
-LLM_MODEL = "claude-haiku-4-5"
-LLM_MAX_TOKENS = 4096
-
-# Note: Pricing is now defined in each provider class
-# See providers/anthropic_provider.py, gemini_provider.py, openai_provider.py
+# Note: Model defaults are configured in .env (e.g., ANTHROPIC_MODEL, OPENAI_MODEL)
+# Pricing is defined in each provider class

@@ -1,4 +1,5 @@
 """OpenAI LLM provider implementation."""
+import os
 import json
 from openai import OpenAI
 from typing import Any
@@ -8,8 +9,8 @@ from .base import LLMProvider
 
 
 # Default model configuration
-OPENAI_MODEL = "gpt-5-mini"
 OPENAI_MAX_TOKENS = 4096
+DEFAULT_OPENAI_MODEL = "gpt-5-mini"
 
 
 @dataclass
@@ -23,10 +24,10 @@ class ToolCall:
 class OpenAIProvider(LLMProvider):
     """LLM provider for OpenAI models."""
 
-    def __init__(self, model_type: str | None = None):
-        super().__init__(model_type)
+    def __init__(self, model_type: str | None = None, model: str | None = None):
+        super().__init__(model_type, model)
         self.client = OpenAI()
-        self._model = OPENAI_MODEL
+        self._model = model or os.environ.get("OPENAI_MODEL", DEFAULT_OPENAI_MODEL)
 
     @property
     def model_name(self) -> str:
@@ -67,11 +68,12 @@ class OpenAIProvider(LLMProvider):
         openai_tools = self._convert_tools(tools) if tools else None
 
         # Make the API call
+        # gpt-5-mini and gpt-5-nano only support temperature=1
         kwargs = {
             "model": self._model,
             "messages": openai_messages,
             "max_completion_tokens": OPENAI_MAX_TOKENS,
-            "temperature": 1 if self._model == "gpt-5-mini" else 0.7,
+            "temperature": 1 if self._model in ("gpt-5-mini", "gpt-5-nano") else 0.7,
         }
 
         if openai_tools:
