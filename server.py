@@ -72,6 +72,13 @@ async def services_api(request):
     meta = body.pop("meta", None)
     raw = body.pop("raw", False)
 
+    # Validate: raw=true and meta are mutually exclusive
+    if raw is True and meta:
+        return JSONResponse(
+            {"error": "Cannot combine 'raw: true' with 'meta'. Raw mode returns unwrapped response without metadata. Remove 'raw' to include meta information, or vice versa."},
+            status_code=400
+        )
+
     try:
         agent = ServiceAgent(provider_name=provider, model_type=model_type, model=model)
         result = await agent.process_request(body, meta_fields=meta, raw=raw)
