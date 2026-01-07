@@ -38,12 +38,6 @@ class GeminiProvider(LLMProvider):
         """Return the model name being used."""
         return self._model
 
-    @property
-    def pricing(self) -> dict:
-        """Return pricing per million tokens for the current model."""
-        # Pricing for gemini-3-flash-preview
-        return {"input": 0.50, "output": 3.00}
-
     def _convert_tools(self, tools: list[dict]) -> list[types.Tool]:
         """Convert Anthropic-format tools to Gemini format."""
         function_declarations = []

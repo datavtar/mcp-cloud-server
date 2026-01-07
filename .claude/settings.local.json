@@ -3,7 +3,10 @@
     "allow": [
       "WebSearch",
       "Bash(curl:*)",
-      "Bash(cat:*)"
+      "Bash(cat:*)",
+      "WebFetch(domain:platform.openai.com)",
+      "WebFetch(domain:medium.com)",
+      "WebFetch(domain:docs.aimlapi.com)"
     ]
   }
 }

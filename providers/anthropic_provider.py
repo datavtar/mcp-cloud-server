@@ -24,12 +24,6 @@ class AnthropicProvider(LLMProvider):
         """Return the model name being used."""
         return self._model
 
-    @property
-    def pricing(self) -> dict:
-        """Return pricing per million tokens for the current model."""
-        # Pricing for claude-haiku-4-5
-        return {"input": 1.0, "output": 5.0}
-
     async def complete_with_tools(
         self,
         messages: list[dict],

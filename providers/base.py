@@ -2,6 +2,8 @@
 from abc import ABC, abstractmethod
 from typing import Any
 
+from config import MODELS, DEFAULT_PRICING
+
 
 class LLMProvider(ABC):
     """Abstract base class for LLM providers.
@@ -29,14 +31,13 @@ class LLMProvider(ABC):
         pass
 
     @property
-    @abstractmethod
     def pricing(self) -> dict:
-        """Return pricing per million tokens.
+        """Return pricing per million tokens from centralized config.
 
         Returns:
             Dict with 'input' and 'output' keys containing USD cost per million tokens
         """
-        pass
+        return MODELS.get(self.model_name, {}).get("pricing", DEFAULT_PRICING)
 
     @abstractmethod
     async def complete_with_tools(

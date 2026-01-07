@@ -58,15 +58,6 @@ class VertexProvider(LLMProvider):
         """Return the model name being used."""
         return self._model
 
-    @property
-    def pricing(self) -> dict:
-        """Return pricing per million tokens for the current model."""
-        # Pricing varies by model type
-        if self._effective_type == "gemini":
-            return {"input": 0.50, "output": 3.00}
-        # Default pricing
-        return {"input": 0.50, "output": 3.00}
-
     def _convert_tools(self, tools: list[dict]) -> list[types.Tool]:
         """Convert Anthropic-format tools to Vertex AI format."""
         function_declarations = []

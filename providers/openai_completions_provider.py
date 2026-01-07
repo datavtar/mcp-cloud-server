@@ -21,7 +21,7 @@ class ToolCall:
     input: dict
 
 
-class OpenAIProvider(LLMProvider):
+class OpenAICompletionsProvider(LLMProvider):
     """LLM provider for OpenAI models using Chat Completions API."""
 
     def __init__(self, model_type: str | None = None, model: str | None = None):
@@ -34,8 +34,14 @@ class OpenAIProvider(LLMProvider):
         """Return the model name being used."""
         return self._model
 
+    @property
+    def pricing(self) -> dict:
+        """Return pricing per million tokens for the current model."""
+        # Pricing for gpt-5-mini
+        return {"input": 0.25, "output": 2.00}
+
     def _convert_tools(self, tools: list[dict]) -> list[dict]:
-        """Convert Anthropic-format tools to OpenAI format."""
+        """Convert Anthropic-format tools to OpenAI Chat Completions format."""
         openai_tools = []
         for tool in tools:
             openai_tools.append({
@@ -54,7 +60,7 @@ class OpenAIProvider(LLMProvider):
         tools: list[dict],
         system_prompt: str
     ) -> Any:
-        """Send messages to OpenAI with tool definitions."""
+        """Send messages to OpenAI Chat Completions API with tool definitions."""
         # Build messages with system prompt
         openai_messages = self._build_messages(messages, system_prompt)
 
