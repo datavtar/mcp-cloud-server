@@ -37,8 +37,16 @@ async def services_api(request):
         "output_format": {"keys": ["temp"], "units": "F"},   # Optional
         "provider": "anthropic",                             # Optional (anthropic, openai, gemini, vertex)
         "type": "gemini",                                    # Optional (model type for vertex provider)
-        "model": "gpt-5-nano"                                # Optional (override default model)
+        "model": "gpt-5-nano",                               # Optional (override default model)
+        "meta": true,                                        # Optional (include all meta info)
+        # OR "meta": ["usage", "cost"],                      # Optional (include specific meta fields)
+        "raw": false                                         # Optional (return unwrapped response)
     }
+
+    Response format:
+        Default: {"data": {...}}
+        With meta: {"data": {...}, "meta": {...}}
+        With raw=true: {...} (unwrapped, backward compatible)
     """
     try:
         body = await request.json()
@@ -57,14 +65,16 @@ async def services_api(request):
     # Import here to avoid circular imports
     from services.agent import ServiceAgent
 
-    # Extract provider, type, and model if specified, otherwise use defaults
+    # Extract parameters, otherwise use defaults
     provider = body.pop("provider", None)
     model_type = body.pop("type", None)
     model = body.pop("model", None)
+    meta = body.pop("meta", None)
+    raw = body.pop("raw", False)
 
     try:
         agent = ServiceAgent(provider_name=provider, model_type=model_type, model=model)
-        result = await agent.process_request(body)
+        result = await agent.process_request(body, meta_fields=meta, raw=raw)
         return JSONResponse(result)
     except ValueError as e:
         # Invalid provider name, model type, or model

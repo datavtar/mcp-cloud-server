@@ -2,10 +2,12 @@
 import json
 import re
 import logging
+import time
 from typing import Any
 
 from providers import get_provider
 from services.tool_registry import TOOLS, TOOL_FUNCTIONS
+from config import MODELS
 
 # Configure logging
 logger = logging.getLogger(__name__)
@@ -85,7 +87,7 @@ class ServiceAgent:
         """
         self.provider = get_provider(provider_name, model_type, model)
 
-    async def process_request(self, request: dict) -> dict:
+    async def process_request(self, request: dict, meta_fields: list | bool | None = None, raw: bool = False) -> dict:
         """Process a request and return structured JSON response.
 
         Args:
@@ -93,10 +95,17 @@ class ServiceAgent:
                 - request: The user's request (required)
                 - context: Optional context to help interpret the request
                 - output_format: Optional dict with keys/units preferences
+            meta_fields: If True, include all meta info. If list, include specific fields.
+                        Available: model, provider, iterations, usage, cost, latency_ms, tools, logs
+            raw: If True, return unwrapped response (backward compatibility)
 
         Returns:
-            Dict with structured response data
+            Dict with structured response data, optionally wrapped in {"data": ..., "meta": ...}
         """
+        start_time = time.time()
+        tools_used = []  # Track tool calls: {"name": str, "input": dict, "iteration": int}
+        logs = []  # Track execution logs
+
         user_message = self._build_user_message(request)
         messages = [{"role": "user", "content": user_message}]
 
@@ -132,11 +141,16 @@ class ServiceAgent:
             if self.provider.is_complete(response):
                 final_text = self.provider.extract_final_response(response)
                 logger.info(f"MODEL COMPLETE - generating response")
+                logs.append(f"[{iteration}] MODEL COMPLETE")
                 result = self._parse_json_response(final_text)
                 logger.info(f"RESPONSE: {json.dumps(result)[:200]}...")
                 self._log_cost(total_input_tokens, total_output_tokens)
                 logger.info(f"{'='*60}")
-                return result
+                return self._wrap_response(
+                    result, meta_fields, raw,
+                    total_input_tokens, total_output_tokens,
+                    iteration, tools_used, logs, start_time
+                )
 
             # Handle tool calls
             tool_calls = self.provider.parse_tool_calls(response)
@@ -145,7 +159,13 @@ class ServiceAgent:
                 # No tool calls but not complete - extract whatever we have
                 final_text = self.provider.extract_final_response(response)
                 logger.info(f"NO TOOL CALLS - extracting response")
-                return self._parse_json_response(final_text)
+                logs.append(f"[{iteration}] NO TOOL CALLS - extracting response")
+                result = self._parse_json_response(final_text)
+                return self._wrap_response(
+                    result, meta_fields, raw,
+                    total_input_tokens, total_output_tokens,
+                    iteration, tools_used, logs, start_time
+                )
 
             # Add assistant's response to conversation
             messages.append(self.provider.format_assistant_message(response))
@@ -154,10 +174,16 @@ class ServiceAgent:
             tool_results = []
             for tool_call in tool_calls:
                 logger.info(f"TOOL CALL: {tool_call.name}({json.dumps(tool_call.input)})")
-                result = await self._execute_tool(tool_call)
-                logger.info(f"TOOL RESULT: {result[:150]}..." if len(result) > 150 else f"TOOL RESULT: {result}")
+                tools_used.append({
+                    "name": tool_call.name,
+                    "input": tool_call.input,
+                    "iteration": iteration
+                })
+                logs.append(f"[{iteration}] TOOL: {tool_call.name}({json.dumps(tool_call.input)})")
+                tool_result = await self._execute_tool(tool_call)
+                logger.info(f"TOOL RESULT: {tool_result[:150]}..." if len(tool_result) > 150 else f"TOOL RESULT: {tool_result}")
                 tool_results.append(
-                    self.provider.format_tool_result(tool_call.id, tool_call.name, result)
+                    self.provider.format_tool_result(tool_call.id, tool_call.name, tool_result)
                 )
 
             # Add tool results to conversation
@@ -165,7 +191,13 @@ class ServiceAgent:
 
         # If we hit max iterations, return error
         logger.error("MAX ITERATIONS REACHED")
-        return {"error": "Max iterations reached", "partial_data": None}
+        logs.append(f"[{iteration}] ERROR: Max iterations reached")
+        result = {"error": "Max iterations reached", "partial_data": None}
+        return self._wrap_response(
+            result, meta_fields, raw,
+            total_input_tokens, total_output_tokens,
+            iteration, tools_used, logs, start_time
+        )
 
     def _log_cost(self, input_tokens: int, output_tokens: int) -> None:
         """Log token usage and estimated cost."""
@@ -179,6 +211,120 @@ class ServiceAgent:
             f"TOKENS: {input_tokens} in / {output_tokens} out | "
             f"COST: ${total_cost:.6f} (${input_cost:.6f} + ${output_cost:.6f})"
         )
+
+    def _wrap_response(
+        self,
+        result: dict,
+        meta_fields: list | bool | None,
+        raw: bool,
+        input_tokens: int,
+        output_tokens: int,
+        iterations: int,
+        tools_used: list,
+        logs: list,
+        start_time: float
+    ) -> dict:
+        """Wrap result with optional meta information.
+
+        Args:
+            result: The parsed JSON result
+            meta_fields: If True, include all meta. If list, include specific fields.
+            raw: If True, return unwrapped result (backward compatibility)
+            input_tokens: Total input tokens used
+            output_tokens: Total output tokens used
+            iterations: Number of LLM iterations
+            tools_used: List of tool calls made
+            logs: Execution logs
+            start_time: Request start time for latency calculation
+
+        Returns:
+            Wrapped response {"data": result} or {"data": result, "meta": {...}}
+            Or unwrapped result if raw=True
+        """
+        if raw:
+            return result
+
+        latency_ms = int((time.time() - start_time) * 1000)
+
+        if meta_fields:
+            meta = self._build_meta(
+                meta_fields=meta_fields,
+                input_tokens=input_tokens,
+                output_tokens=output_tokens,
+                iterations=iterations,
+                tools_used=tools_used,
+                logs=logs,
+                latency_ms=latency_ms
+            )
+            return {"data": result, "meta": meta}
+
+        return {"data": result}
+
+    def _build_meta(
+        self,
+        meta_fields: list | bool,
+        input_tokens: int,
+        output_tokens: int,
+        iterations: int,
+        tools_used: list,
+        logs: list,
+        latency_ms: int
+    ) -> dict:
+        """Build meta dict based on requested fields.
+
+        Args:
+            meta_fields: True for all fields, or list of specific field names
+            input_tokens: Total input tokens
+            output_tokens: Total output tokens
+            iterations: Number of LLM calls
+            tools_used: List of tool calls
+            logs: Execution logs
+            latency_ms: Total latency in milliseconds
+
+        Returns:
+            Dict with requested meta fields
+        """
+        all_fields = meta_fields is True
+        fields = meta_fields if isinstance(meta_fields, list) else []
+
+        meta = {}
+
+        if all_fields or "model" in fields:
+            meta["model"] = self.provider.model_name
+
+        if all_fields or "provider" in fields:
+            model_config = MODELS.get(self.provider.model_name, {})
+            meta["provider"] = model_config.get("provider", "unknown")
+
+        if all_fields or "iterations" in fields:
+            meta["iterations"] = iterations
+
+        if all_fields or "usage" in fields:
+            meta["usage"] = {
+                "input_tokens": input_tokens,
+                "output_tokens": output_tokens
+            }
+
+        if all_fields or "cost" in fields:
+            pricing = self.provider.pricing
+            input_cost = (input_tokens / 1_000_000) * pricing["input"]
+            output_cost = (output_tokens / 1_000_000) * pricing["output"]
+            meta["cost"] = {
+                "input": round(input_cost, 6),
+                "output": round(output_cost, 6),
+                "total": round(input_cost + output_cost, 6)
+            }
+
+        if all_fields or "latency_ms" in fields:
+            meta["latency_ms"] = latency_ms
+
+        if all_fields or "tools" in fields:
+            meta["tools"] = tools_used
+
+        if all_fields or "logs" in fields:
+            meta["logs"] = logs
+
+        return meta
 
     def _build_user_message(self, request: dict) -> str:
         """Build the user message from request parameters."""
